@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Job, JobType, JsonPrompts } from '../types';
+import { Job, JobType, JsonPrompts, ScrapeResult, CrawlResult } from '../types';
 import { createJob, getJobStatus } from '../api/crawler';
 
 export function useJobProcessing() {
@@ -25,11 +25,21 @@ export function useJobProcessing() {
       }
       return false;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: CrawlResult | ScrapeResult | null) => {
       if (data) {
         const status = 'status' in data ? data.status : (data.success ? 'completed' : 'failed');
-        const result = 'data' in data ? [data.data] : data.data;
-        const error = data.error;
+        let result;
+
+        // Handle crawl result
+        if ('status' in data && data.data) {
+          result = data.data;
+        }
+        // Handle scrape result
+        else if ('data' in data) {
+          result = [data.data];
+        }
+
+        const error = 'error' in data ? data.error : undefined;
 
         setJobState(prev => ({
           ...prev,
@@ -56,9 +66,33 @@ export function useJobProcessing() {
 
   const submitJob = async (url: string, type: JobType, prompts?: JsonPrompts) => {
     try {
-      const jobId = await createJob(url, type, prompts);
+      const result = await createJob(url, type, prompts);
+      
+      // Handle immediate result for custom prompt scraping
+      if (typeof result !== 'string' && type === 'scrape' && prompts) {
+        setJobState({
+          id: null,
+          type,
+          job: {
+            id: 'direct',
+            type,
+            status: result.success ? 'completed' : 'failed',
+            result: result.success ? [result.data] : [],
+            error: result.error
+          }
+        });
+        
+        if (result.success) {
+          toast.success('Scraping completed successfully!');
+        } else {
+          toast.error(result.error || 'Scraping failed');
+        }
+        return;
+      }
+
+      // Handle regular job creation
       setJobState({
-        id: jobId,
+        id: result as string,
         type,
         job: null
       });

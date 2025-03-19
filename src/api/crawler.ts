@@ -16,7 +16,7 @@ export const createJob = async (
   url: string, 
   type: JobType, 
   jsonPrompts?: JsonPrompts
-): Promise<string> => {
+): Promise<string | ScrapeResult> => {
   const formats: OutputFormat[] = jsonPrompts ? ['json'] : ['markdown', 'html'];
   
   const options: CrawlOptions = {
@@ -41,8 +41,14 @@ export const createJob = async (
         jsonOptions: options.jsonOptions 
       };
 
-  const { data } = await api.post<JobResponse>(endpoint, payload);
-  return data.id;
+  const { data } = await api.post(endpoint, payload);
+  
+  // For custom prompt scraping, return the result directly
+  if (type === 'scrape' && jsonPrompts) {
+    return data as ScrapeResult;
+  }
+  
+  return (data as JobResponse).id;
 };
 
 export const getJobStatus = async (jobId: string, type: JobType, retryCount = 0): Promise<CrawlResult | ScrapeResult> => {
