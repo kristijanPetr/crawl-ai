@@ -19,50 +19,57 @@ export function useJobProcessing() {
     queryKey: ['job', jobState.id, jobState.type],
     queryFn: () => (jobState.id ? getJobStatus(jobState.id, jobState.type) : null),
     enabled: !!jobState.id,
-    refetchInterval: (data: any) => {
-      if (!data || data.status === 'pending' || data.status === 'scraping') {
-        return 5000;
+    refetchInterval: (data) => {
+      if (!data) return 5000;
+      
+      // For crawl jobs
+      if ('status' in data) {
+        return data.status === 'pending' || data.status === 'scraping' ? 5000 : false;
       }
+      
       return false;
     },
     onSuccess: (data: CrawlResult | ScrapeResult | null) => {
-      if (data) {
-        if ('status' in data) { // CrawlResult
-          setJobState(prev => ({
-            ...prev,
-            job: {
-              id: prev.id!,
-              type: prev.type,
-              status: data.status,
-              result: data.data,
-              completed: data.completed,
-              total: data.total,
-              error: data.error
-            }
-          }));
+      if (!data) return;
 
-          if (data.status === 'completed') {
-            toast.success('Job completed successfully!');
-          } else if (data.status === 'failed') {
-            toast.error(data.error || 'Job failed');
-          }
-        } else { // ScrapeResult
-          setJobState(prev => ({
-            ...prev,
-            job: {
-              id: prev.id!,
-              type: prev.type,
-              status: data.success ? 'completed' : 'failed',
-              result: data.success ? [data.data] : [],
-              error: data.error
-            }
-          }));
+      if ('status' in data) { // CrawlResult
+        const isComplete = data.status === 'completed' && data.completed === data.total;
+        const isFailed = data.status === 'failed' || data.error;
 
-          if (data.success) {
-            toast.success('Scraping completed successfully!');
-          } else {
-            toast.error(data.error || 'Scraping failed');
+        setJobState(prev => ({
+          ...prev,
+          job: {
+            id: prev.id!,
+            type: prev.type,
+            status: isComplete ? 'completed' : isFailed ? 'failed' : data.status,
+            result: isComplete ? data.data : prev.job?.result,
+            completed: data.completed,
+            total: data.total,
+            error: data.error
           }
+        }));
+
+        if (isComplete) {
+          toast.success('Job completed successfully!');
+        } else if (isFailed) {
+          toast.error(data.error || 'Job failed');
+        }
+      } else { // ScrapeResult
+        setJobState(prev => ({
+          ...prev,
+          job: {
+            id: prev.id!,
+            type: prev.type,
+            status: data.success ? 'completed' : 'failed',
+            result: data.success ? [data.data] : [],
+            error: data.error
+          }
+        }));
+
+        if (data.success) {
+          toast.success('Scraping completed successfully!');
+        } else {
+          toast.error(data.error || 'Scraping failed');
         }
       }
     },
