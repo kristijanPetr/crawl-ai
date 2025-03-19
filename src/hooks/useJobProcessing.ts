@@ -20,42 +20,49 @@ export function useJobProcessing() {
     queryFn: () => (jobState.id ? getJobStatus(jobState.id, jobState.type) : null),
     enabled: !!jobState.id,
     refetchInterval: (data: any) => {
-      if (!data || data.status === 'pending' || data.status === 'processing') {
+      if (!data || data.status === 'pending' || data.status === 'scraping') {
         return 5000;
       }
       return false;
     },
     onSuccess: (data: CrawlResult | ScrapeResult | null) => {
       if (data) {
-        const status = 'status' in data ? data.status : (data.success ? 'completed' : 'failed');
-        let result;
+        if ('status' in data) { // CrawlResult
+          setJobState(prev => ({
+            ...prev,
+            job: {
+              id: prev.id!,
+              type: prev.type,
+              status: data.status,
+              result: data.data,
+              completed: data.completed,
+              total: data.total,
+              error: data.error
+            }
+          }));
 
-        // Handle crawl result
-        if ('status' in data && data.data) {
-          result = data.data;
-        }
-        // Handle scrape result
-        else if ('data' in data) {
-          result = [data.data];
-        }
-
-        const error = 'error' in data ? data.error : undefined;
-
-        setJobState(prev => ({
-          ...prev,
-          job: {
-            id: prev.id!,
-            type: prev.type,
-            status: status as Job['status'],
-            result,
-            error
+          if (data.status === 'completed') {
+            toast.success('Job completed successfully!');
+          } else if (data.status === 'failed') {
+            toast.error(data.error || 'Job failed');
           }
-        }));
+        } else { // ScrapeResult
+          setJobState(prev => ({
+            ...prev,
+            job: {
+              id: prev.id!,
+              type: prev.type,
+              status: data.success ? 'completed' : 'failed',
+              result: data.success ? [data.data] : [],
+              error: data.error
+            }
+          }));
 
-        if (status === 'completed') {
-          toast.success('Job completed successfully!');
-        } else if (status === 'failed') {
-          toast.error(error || 'Job failed');
+          if (data.success) {
+            toast.success('Scraping completed successfully!');
+          } else {
+            toast.error(data.error || 'Scraping failed');
+          }
         }
       }
     },
@@ -105,6 +112,6 @@ export function useJobProcessing() {
   return {
     submitJob,
     currentJob: jobState.job,
-    isLoading: !!jobState.id && (!jobState.job || ['pending', 'processing'].includes(jobState.job.status)),
+    isLoading: !!jobState.id && (!jobState.job || ['pending', 'scraping'].includes(jobState.job.status)),
   };
 }

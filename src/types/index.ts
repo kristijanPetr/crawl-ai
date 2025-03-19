@@ -20,6 +20,13 @@ export interface ContentMetadata {
   language: string;
   sourceURL: string;
   statusCode: number;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  ogUrl?: string;
+  ogSiteName?: string;
+  favicon?: string;
+  [key: string]: any;
 }
 
 export interface ContentData {
@@ -36,11 +43,14 @@ export interface JobResponse {
 }
 
 export interface CrawlResult {
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  total?: number;
-  creditsUsed?: number;
-  expiresAt?: string;
-  data?: ContentData[];
+  success: boolean;
+  status: 'pending' | 'scraping' | 'completed' | 'failed';
+  completed: number;
+  total: number;
+  creditsUsed: number;
+  expiresAt: string;
+  next?: string;
+  data: ContentData[];
   error?: string;
 }
 
@@ -53,7 +63,9 @@ export interface ScrapeResult {
 export interface Job {
   id: string;
   type: JobType;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'scraping' | 'completed' | 'failed';
   result?: ContentData[];
+  completed?: number;
+  total?: number;
   error?: string;
 }
