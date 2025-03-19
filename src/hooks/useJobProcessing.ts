@@ -42,7 +42,8 @@ export function useJobProcessing() {
             id: prev.id!,
             type: prev.type,
             status: isComplete ? 'completed' : isFailed ? 'failed' : data.status,
-            result: isComplete ? data.data : prev.job?.result,
+            // Always update results array with latest data
+            result: data.data || [],
             completed: data.completed,
             total: data.total,
             error: data.error
